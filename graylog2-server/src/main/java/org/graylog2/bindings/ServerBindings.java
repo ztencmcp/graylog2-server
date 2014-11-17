@@ -22,6 +22,7 @@ import com.google.inject.Scopes;
 import com.google.inject.TypeLiteral;
 import com.google.inject.assistedinject.FactoryModuleBuilder;
 import com.google.inject.multibindings.Multibinder;
+import com.hazelcast.core.HazelcastInstance;
 import com.ning.http.client.AsyncHttpClient;
 import org.apache.shiro.mgt.DefaultSecurityManager;
 import org.elasticsearch.node.Node;
@@ -34,6 +35,7 @@ import org.graylog2.bindings.providers.BundleExporterProvider;
 import org.graylog2.bindings.providers.BundleImporterProvider;
 import org.graylog2.bindings.providers.DefaultSecurityManagerProvider;
 import org.graylog2.bindings.providers.EsNodeProvider;
+import org.graylog2.shared.bindings.providers.HazelcastInstanceProvider;
 import org.graylog2.bindings.providers.InputCacheProvider;
 import org.graylog2.bindings.providers.LdapConnectorProvider;
 import org.graylog2.bindings.providers.LdapUserAuthenticatorProvider;
@@ -110,6 +112,7 @@ public class ServerBindings extends AbstractModule {
     private void bindProviders() {
         bind(ObjectMapper.class).toProvider(ServerObjectMapperProvider.class);
         bind(RotationStrategy.class).toProvider(RotationStrategyProvider.class);
+        bind(HazelcastInstance.class).toProvider(HazelcastInstanceProvider.class).asEagerSingleton();
     }
 
     private void bindFactoryModules() {
@@ -136,7 +139,7 @@ public class ServerBindings extends AbstractModule {
         capabilityBinder.addBinding().toInstance(ServerStatus.Capability.SERVER);
         if (configuration.isMaster())
             capabilityBinder.addBinding().toInstance(ServerStatus.Capability.MASTER);
-        bind(ServerStatus.class).in(Scopes.SINGLETON);
+        bind(ServerStatus.class).asEagerSingleton();
 
         bind(OutputBufferWatermark.class).toInstance(new OutputBufferWatermark());
         bind(Node.class).toProvider(EsNodeProvider.class).in(Scopes.SINGLETON);

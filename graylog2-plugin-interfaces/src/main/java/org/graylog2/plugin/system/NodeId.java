@@ -22,6 +22,7 @@
  */
 package org.graylog2.plugin.system;
 
+import com.fasterxml.jackson.annotation.JsonValue;
 import org.apache.commons.io.FileUtils;
 import org.graylog2.plugin.Tools;
 import org.slf4j.Logger;
@@ -90,6 +91,7 @@ public class NodeId {
         FileUtils.writeStringToFile(new File(filename), nodeId);
     }
 
+    @JsonValue
     public String toString() {
         return id;
     }

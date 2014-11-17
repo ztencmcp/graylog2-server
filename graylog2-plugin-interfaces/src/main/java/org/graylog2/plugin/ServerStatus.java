@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.inject.Singleton;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -160,6 +161,10 @@ public class ServerStatus {
 
     public boolean hasCapabilities(Capability... capabilities) {
         return this.capabilitySet.containsAll(Arrays.asList(capabilities));
+    }
+
+    public Set<Capability> getCapabilities() {
+        return Collections.unmodifiableSet(this.capabilitySet);
     }
 
     public boolean isProcessing() {

@@ -23,6 +23,7 @@ import org.graylog2.alerts.AlertService;
 import org.graylog2.alerts.AlertServiceImpl;
 import org.graylog2.cluster.NodeService;
 import org.graylog2.cluster.NodeServiceImpl;
+import org.graylog2.cluster.NodeServiceImplHZ;
 import org.graylog2.dashboards.DashboardService;
 import org.graylog2.dashboards.DashboardServiceImpl;
 import org.graylog2.indexer.IndexFailureService;
@@ -61,7 +62,7 @@ public class PersistenceServicesBindings extends AbstractModule {
         bind(NotificationService.class).to(NotificationServiceImpl.class);
         bind(PersistedDeadLetterService.class).to(PersistedDeadLetterServiceImpl.class);
         bind(IndexFailureService.class).to(IndexFailureServiceImpl.class);
-        bind(NodeService.class).to(NodeServiceImpl.class);
+        bind(NodeService.class).to(NodeServiceImplHZ.class);
         bind(IndexRangeService.class).to(IndexRangeServiceImpl.class);
         bind(InputService.class).to(InputServiceImpl.class);
         bind(StreamRuleService.class).to(StreamRuleServiceImpl.class);

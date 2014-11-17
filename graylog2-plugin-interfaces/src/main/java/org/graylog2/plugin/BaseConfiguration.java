@@ -104,6 +104,12 @@ public abstract class BaseConfiguration {
     @Parameter(value = "udp_recvbuffer_sizes", required = true, validator = PositiveIntegerValidator.class)
     private int udpRecvBufferSizes = 1048576;
 
+    @Parameter(value = "cluster_name", required = true)
+    private String clusterName = "graylog2";
+
+    @Parameter(value = "cluster_password", required = true)
+    private String clusterPassword;
+
     public String getRestUriScheme() {
         return isRestEnableTls() ? "https" : "http";
     }
@@ -237,5 +243,13 @@ public abstract class BaseConfiguration {
 
     public int getUdpRecvBufferSizes() {
         return udpRecvBufferSizes;
+    }
+
+    public String getClusterName() {
+        return clusterName;
+    }
+
+    public String getClusterPassword() {
+        return clusterPassword;
     }
 }

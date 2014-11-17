@@ -591,6 +591,11 @@
                 <version>1.9.5</version>
                 <scope>test</scope>
             </dependency>
+            <dependency>
+                <groupId>com.hazelcast</groupId>
+                <artifactId>hazelcast</artifactId>
+                <version>3.3.3</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

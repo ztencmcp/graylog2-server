@@ -24,6 +24,7 @@ import com.google.inject.assistedinject.FactoryModuleBuilder;
 import com.google.inject.multibindings.Multibinder;
 import com.google.inject.name.Names;
 import com.google.inject.util.Providers;
+import com.hazelcast.core.HazelcastInstance;
 import com.ning.http.client.AsyncHttpClient;
 import org.graylog2.inputs.BasicCache;
 import org.graylog2.inputs.InputCache;
@@ -39,6 +40,7 @@ import org.graylog2.radio.transports.amqp.AMQPProducer;
 import org.graylog2.radio.transports.kafka.KafkaProducer;
 import org.graylog2.plugin.BaseConfiguration;
 import org.graylog2.plugin.ServerStatus;
+import org.graylog2.shared.bindings.providers.HazelcastInstanceProvider;
 import org.graylog2.shared.bindings.providers.ObjectMapperProvider;
 import org.graylog2.shared.inputs.InputRegistry;
 import org.graylog2.shared.system.activities.ActivityWriter;
@@ -75,6 +77,8 @@ public class RadioBindings extends AbstractModule {
     private void bindSingletons() {
         bind(Configuration.class).toInstance(configuration);
         bind(BaseConfiguration.class).toInstance(configuration);
+
+        bind(HazelcastInstance.class).toProvider(HazelcastInstanceProvider.class).asEagerSingleton();
 
         Multibinder<ServerStatus.Capability> capabilityBinder =
                 Multibinder.newSetBinder(binder(), ServerStatus.Capability.class);
