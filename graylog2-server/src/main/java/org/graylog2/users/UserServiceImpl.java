@@ -18,14 +18,15 @@ package org.graylog2.users;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import javax.inject.Inject;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 import org.bson.types.ObjectId;
 import org.graylog2.Configuration;
 import org.graylog2.database.MongoConnection;
 import org.graylog2.database.PersistedServiceImpl;
-import org.graylog2.plugin.database.Persisted;
 import org.graylog2.plugin.database.ValidationException;
+import org.graylog2.plugin.database.Persisted;
 import org.graylog2.plugin.database.users.User;
 import org.graylog2.security.RestPermissions;
 import org.graylog2.shared.security.ldap.LdapEntry;
@@ -34,9 +35,7 @@ import org.graylog2.shared.users.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.inject.Inject;
 import java.util.List;
-import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -55,17 +54,15 @@ public class UserServiceImpl extends PersistedServiceImpl implements UserService
     @Override
     public User load(final String username) {
         LOG.debug("Loading user {}", username);
-        final String lowercaseUsername = username.toLowerCase();
 
         // special case for the locally defined user, we don't store that in MongoDB.
-        if (configuration.getRootUsername().toLowerCase().equals(lowercaseUsername)) {
+        if (configuration.getRootUsername().equals(username)) {
             LOG.debug("User {} is the built-in admin user", username);
             return new UserImpl.LocalAdminUser(configuration);
         }
 
         final DBObject query = new BasicDBObject();
-        // ignore case when searching for the user, only possible using a regex if there's no TEXT index, apparently.
-        query.put(UserImpl.USERNAME, Pattern.compile(username, Pattern.CASE_INSENSITIVE));
+        query.put(UserImpl.USERNAME, username);
 
         final List<DBObject> result = query(UserImpl.class, query);
         if (result == null || result.isEmpty()) {
@@ -73,8 +70,7 @@ public class UserServiceImpl extends PersistedServiceImpl implements UserService
         }
 
         if (result.size() > 1) {
-            final String msg = "There was more than one matching user for username " + lowercaseUsername + ". " +
-                    "This should never happen and indicates that a necessary data migration has not been run.";
+            final String msg = "There was more than one matching user for username " + username + ". This should never happen.";
             LOG.error(msg);
             throw new RuntimeException(msg);
         }
@@ -82,7 +78,7 @@ public class UserServiceImpl extends PersistedServiceImpl implements UserService
         final DBObject userObject = result.get(0);
         final Object userId = userObject.get("_id");
 
-        LOG.debug("Loaded user {}/{} from MongoDB", lowercaseUsername, userId);
+        LOG.debug("Loaded user {}/{} from MongoDB", username, userId);
         return new UserImpl((ObjectId) userId, userObject.toMap());
     }
 
