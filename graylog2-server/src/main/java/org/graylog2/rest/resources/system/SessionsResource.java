@@ -55,6 +55,8 @@ import java.io.Serializable;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Strings.emptyToNull;
+
 @Path("/system/sessions")
 @Api(value = "System/Sessions", description = "Login for interactive user sessions")
 public class SessionsResource extends RestResource {
@@ -84,10 +86,7 @@ public class SessionsResource extends RestResource {
         // we treat the BASIC auth username as the sessionid
         final String sessionId = shiroSecurityContext.getUsername();
         // pretend that we had session id before
-        Serializable id = null;
-        if (sessionId != null && !sessionId.isEmpty()) {
-            id = sessionId;
-        }
+        Serializable id = emptyToNull(sessionId);
         final Subject subject = new Subject.Builder().sessionId(id).buildSubject();
         ThreadContext.bind(subject);
 
@@ -98,8 +97,9 @@ public class SessionsResource extends RestResource {
                 long timeoutInMillis = user.getSessionTimeoutMs();
                 subject.getSession().setTimeout(timeoutInMillis);
             } else {
-                // set a sane default. really we should be able to load the user from above.
-                subject.getSession().setTimeout(TimeUnit.HOURS.toMillis(8));
+                // No user account found although the user has been authenticated.
+                // Sounds like an LDAP case-sensitivity issue...
+                throw new UnknownSessionException("User could be authenticated externally, but no local user account found.");
             }
             subject.getSession().touch();
 
@@ -119,6 +119,7 @@ public class SessionsResource extends RestResource {
             result.validUntil = new DateTime(session.getLastAccessTime(), DateTimeZone.UTC).plus(session.getTimeout()).toDate();
             return result;
         }
+
         throw new NotAuthorizedException("Invalid username or password", "Basic realm=\"Graylog2 Server session\"");
     }
 

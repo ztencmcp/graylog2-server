@@ -102,7 +102,8 @@ public class UserServiceImpl extends PersistedServiceImpl implements UserService
 
     @Override
     public User syncFromLdapEntry(LdapEntry userEntry, LdapSettings ldapSettings, String username) {
-        UserImpl user = (UserImpl) load(username);
+        final String usernameLowercase = username.toLowerCase();
+        UserImpl user = (UserImpl) load(usernameLowercase);
 
         // create new user object if necessary
         if (user == null) {
@@ -110,7 +111,7 @@ public class UserServiceImpl extends PersistedServiceImpl implements UserService
         }
 
         // update user attributes from ldap entry
-        updateFromLdap(user, userEntry, ldapSettings, username);
+        updateFromLdap(user, userEntry, ldapSettings, usernameLowercase);
 
         try {
             save(user);
