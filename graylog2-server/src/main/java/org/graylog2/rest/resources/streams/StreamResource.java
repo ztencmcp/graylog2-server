@@ -20,6 +20,7 @@ import com.codahale.metrics.annotation.Timed;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.eventbus.EventBus;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 import com.wordnik.swagger.annotations.ApiParam;
@@ -31,6 +32,7 @@ import org.bson.types.ObjectId;
 import org.cliffc.high_scale_lib.Counter;
 import org.graylog2.alarmcallbacks.AlarmCallbackConfiguration;
 import org.graylog2.alarmcallbacks.AlarmCallbackConfigurationService;
+import org.graylog2.events.ClusterEventService;
 import org.graylog2.rest.models.alarmcallbacks.requests.CreateAlarmCallbackRequest;
 import org.graylog2.database.NotFoundException;
 import org.graylog2.plugin.database.ValidationException;
@@ -49,9 +51,12 @@ import org.graylog2.rest.resources.streams.responses.TestMatchResponse;
 import org.graylog2.rest.resources.streams.rules.requests.CreateStreamRuleRequest;
 import org.graylog2.shared.security.RestPermissions;
 import org.graylog2.shared.stats.ThroughputStats;
+import org.graylog2.streams.StreamCreatedEvent;
+import org.graylog2.streams.StreamDeletedEvent;
 import org.graylog2.streams.StreamRouterEngine;
 import org.graylog2.streams.StreamRuleService;
 import org.graylog2.streams.StreamService;
+import org.graylog2.streams.StreamUpdatedEvent;
 import org.hibernate.validator.constraints.NotEmpty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,18 +95,21 @@ public class StreamResource extends RestResource {
     private final StreamRouterEngine.Factory streamRouterEngineFactory;
     private final ThroughputStats throughputStats;
     private final AlarmCallbackConfigurationService alarmCallbackConfigurationService;
+    private final ClusterEventService clusterEventService;
 
     @Inject
     public StreamResource(StreamService streamService,
                           StreamRuleService streamRuleService,
                           StreamRouterEngine.Factory streamRouterEngineFactory,
                           ThroughputStats throughputStats,
-                          AlarmCallbackConfigurationService alarmCallbackConfigurationService) {
+                          AlarmCallbackConfigurationService alarmCallbackConfigurationService,
+                          ClusterEventService clusterEventService) {
         this.streamService = streamService;
         this.streamRuleService = streamRuleService;
         this.streamRouterEngineFactory = streamRouterEngineFactory;
         this.throughputStats = throughputStats;
         this.alarmCallbackConfigurationService = alarmCallbackConfigurationService;
+        this.clusterEventService = clusterEventService;
     }
 
     @POST
@@ -122,6 +130,8 @@ public class StreamResource extends RestResource {
             StreamRule streamRule = streamRuleService.create(id, request);
             streamRuleService.save(streamRule);
         }
+
+        this.clusterEventService.publishClusterEvent(new StreamCreatedEvent(id));
 
         final Map<String, String> result = ImmutableMap.of("stream_id", id);
         final URI streamUri = getUriBuilderToSelf().path(StreamResource.class)
@@ -202,6 +212,8 @@ public class StreamResource extends RestResource {
 
         streamService.save(stream);
 
+        this.clusterEventService.publishClusterEvent(new StreamUpdatedEvent(streamId));
+
         return stream;
     }
 
@@ -218,6 +230,8 @@ public class StreamResource extends RestResource {
 
         final Stream stream = streamService.load(streamId);
         streamService.destroy(stream);
+
+        this.clusterEventService.publishClusterEvent(new StreamDeletedEvent(streamId));
     }
 
     @POST
@@ -234,6 +248,8 @@ public class StreamResource extends RestResource {
 
         final Stream stream = streamService.load(streamId);
         streamService.pause(stream);
+
+        this.clusterEventService.publishClusterEvent(new StreamUpdatedEvent(streamId));
     }
 
     @POST
@@ -250,6 +266,8 @@ public class StreamResource extends RestResource {
 
         final Stream stream = streamService.load(streamId);
         streamService.resume(stream);
+
+        this.clusterEventService.publishClusterEvent(new StreamUpdatedEvent(streamId));
     }
 
     @POST
@@ -348,6 +366,8 @@ public class StreamResource extends RestResource {
         for (Output output : sourceStream.getOutputs()) {
             streamService.addOutput(stream, output);
         }
+
+        this.clusterEventService.publishClusterEvent(new StreamCreatedEvent(streamId));
 
         final Map<String, String> result = ImmutableMap.of("stream_id", id);
         final URI streamUri = getUriBuilderToSelf().path(StreamResource.class)

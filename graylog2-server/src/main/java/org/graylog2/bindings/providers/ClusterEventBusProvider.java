@@ -21,7 +21,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.google.common.eventbus.AsyncEventBus;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import org.graylog2.plugin.BaseConfiguration;
 import org.graylog2.shared.events.DeadEventLoggingListener;
 
 import javax.inject.Inject;

@@ -16,6 +16,8 @@
  */
 package org.graylog2.streams;
 
+import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import javax.inject.Named;
 import org.graylog2.plugin.Message;
@@ -30,7 +32,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -39,9 +40,6 @@ import java.util.concurrent.atomic.AtomicReference;
 public class StreamRouter {
     private static final Logger LOG = LoggerFactory.getLogger(StreamRouter.class);
 
-    private static final long ENGINE_UPDATE_INTERVAL = 1L;
-
-    protected final StreamService streamService;
     private final ServerStatus serverStatus;
 
     private final AtomicReference<StreamRouterEngine> routerEngine = new AtomicReference<>(null);
@@ -50,13 +48,12 @@ public class StreamRouter {
     public StreamRouter(StreamService streamService,
                         ServerStatus serverStatus,
                         StreamRouterEngine.Factory routerEngineFactory,
-                        @Named("daemonScheduler") ScheduledExecutorService scheduler) {
-        this.streamService = streamService;
+                        EventBus eventBus) {
         this.serverStatus = serverStatus;
 
         final StreamRouterEngineUpdater streamRouterEngineUpdater = new StreamRouterEngineUpdater(routerEngine, routerEngineFactory, streamService, executorService());
         this.routerEngine.set(streamRouterEngineUpdater.getNewEngine());
-        scheduler.scheduleAtFixedRate(streamRouterEngineUpdater, 0, ENGINE_UPDATE_INTERVAL, TimeUnit.SECONDS);
+        eventBus.register(streamRouterEngineUpdater);
     }
 
     private ExecutorService executorService() {
@@ -75,7 +72,7 @@ public class StreamRouter {
         return engine.match(msg);
     }
 
-    private class StreamRouterEngineUpdater implements Runnable {
+    private class StreamRouterEngineUpdater {
         private final AtomicReference<StreamRouterEngine> routerEngine;
         private final StreamRouterEngine.Factory engineFactory;
         private final StreamService streamService;
@@ -91,18 +88,11 @@ public class StreamRouter {
             this.executorService = executorService;
         }
 
-        @Override
-        public void run() {
+        @Subscribe
+        public void streamsChanged(StreamChangeEvent evt) {
             try {
                 final StreamRouterEngine engine = getNewEngine();
-
-                if (engine.getFingerprint().equals(routerEngine.get().getFingerprint())) {
-                    LOG.debug("Not updating router engine, streams did not change (fingerprint={})", engine.getFingerprint());
-                } else {
-                    LOG.debug("Updating to new stream router engine. (old-fingerprint={} new-fingerprint={}",
-                            routerEngine.get().getFingerprint(), engine.getFingerprint());
-                    routerEngine.set(engine);
-                }
+                routerEngine.set(engine);
             } catch (Exception e) {
                 LOG.error("Stream router engine update failed!", e);
             }

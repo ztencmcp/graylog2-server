@@ -17,6 +17,7 @@
 package org.graylog2.rest.resources.streams.rules;
 
 import com.codahale.metrics.annotation.Timed;
+import com.google.common.eventbus.EventBus;
 import com.wordnik.swagger.annotations.Api;
 import com.wordnik.swagger.annotations.ApiOperation;
 import com.wordnik.swagger.annotations.ApiParam;
@@ -24,6 +25,7 @@ import com.wordnik.swagger.annotations.ApiResponse;
 import com.wordnik.swagger.annotations.ApiResponses;
 import org.apache.shiro.authz.annotation.RequiresAuthentication;
 import org.graylog2.database.NotFoundException;
+import org.graylog2.events.ClusterEventService;
 import org.graylog2.plugin.database.ValidationException;
 import org.graylog2.plugin.streams.Stream;
 import org.graylog2.plugin.streams.StreamRule;
@@ -35,6 +37,7 @@ import org.graylog2.rest.resources.streams.rules.requests.CreateStreamRuleReques
 import org.graylog2.shared.security.RestPermissions;
 import org.graylog2.streams.StreamRuleService;
 import org.graylog2.streams.StreamService;
+import org.graylog2.streams.StreamUpdatedEvent;
 import org.hibernate.validator.constraints.NotEmpty;
 
 import javax.inject.Inject;
@@ -60,12 +63,15 @@ import java.util.List;
 public class StreamRuleResource extends RestResource {
     private final StreamRuleService streamRuleService;
     private final StreamService streamService;
+    private final ClusterEventService clusterEventService;
 
     @Inject
     public StreamRuleResource(StreamRuleService streamRuleService,
-                              StreamService streamService) {
+                              StreamService streamService,
+                              ClusterEventService clusterEventService) {
         this.streamRuleService = streamRuleService;
         this.streamService = streamService;
+        this.clusterEventService = clusterEventService;
     }
 
     @POST
@@ -84,6 +90,8 @@ public class StreamRuleResource extends RestResource {
         final String id = streamService.save(streamRule);
 
         final SingleStreamRuleSummaryResponse response = SingleStreamRuleSummaryResponse.create(id);
+
+        this.clusterEventService.publishClusterEvent(new StreamUpdatedEvent(streamId));
 
         final URI streamRuleUri = getUriBuilderToSelf().path(StreamRuleResource.class)
                 .path("{streamRuleId}")
@@ -128,6 +136,8 @@ public class StreamRuleResource extends RestResource {
         streamRule.setValue(cr.value());
 
         streamRuleService.save(streamRule);
+
+        this.clusterEventService.publishClusterEvent(new StreamUpdatedEvent(streamid));
 
         return SingleStreamRuleSummaryResponse.create(streamRule.getId());
     }
@@ -188,6 +198,7 @@ public class StreamRuleResource extends RestResource {
         final StreamRule streamRule = streamRuleService.load(streamRuleId);
         if (streamRule.getStreamId().equals(streamid)) {
             streamRuleService.destroy(streamRule);
+            this.clusterEventService.publishClusterEvent(new StreamUpdatedEvent(streamid));
         } else {
             throw new NotFoundException();
         }

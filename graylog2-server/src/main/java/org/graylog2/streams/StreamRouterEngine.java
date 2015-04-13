@@ -84,6 +84,7 @@ public class StreamRouterEngine {
         this.fingerprint = new StreamListFingerprint(streams).getFingerprint();
 
         for (final Stream stream : streams) {
+            LOG.info("Rules for stream {}: {}", stream.getId(), stream.getStreamRules());
             for (final StreamRule streamRule : stream.getStreamRules()) {
                 try {
                     final Rule rule = new Rule(stream, streamRule);
