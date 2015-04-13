@@ -35,11 +35,11 @@ import com.mongodb.WriteConcern;
 import org.graylog2.bindings.providers.MongoJackObjectMapperProvider;
 import org.graylog2.database.MongoConnection;
 import org.graylog2.plugin.system.NodeId;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.mongojack.DBCursor;
 import org.mongojack.DBSort;
-import org.mongojack.DBUpdate;
 import org.mongojack.JacksonDBCollection;
-import org.mongojack.WriteResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,7 +61,6 @@ public class ClusterEventService extends AbstractExecutionThreadService {
     private final NodeId nodeId;
     private final ObjectMapper objectMapper;
     private final EventBus serverEventBus;
-    private final EventBus clusterEventBus;
 
     @Inject
     public ClusterEventService(final MongoJackObjectMapperProvider mapperProvider,
@@ -83,9 +82,8 @@ public class ClusterEventService extends AbstractExecutionThreadService {
         this.dbCollection = checkNotNull(dbCollection);
         this.objectMapper = checkNotNull(objectMapper);
         this.serverEventBus = checkNotNull(serverEventBus);
-        this.clusterEventBus = checkNotNull(clusterEventBus);
 
-        this.clusterEventBus.register(this);
+        checkNotNull(clusterEventBus).register(this);
     }
 
     @VisibleForTesting
@@ -103,7 +101,7 @@ public class ClusterEventService extends AbstractExecutionThreadService {
                 coll = db.createCollection(COLLECTION_NAME, options);
             } catch (MongoException e) {
                 // Error code 48 == "collection already exists"
-                if(e.getCode() == 48) {
+                if (e.getCode() == 48) {
                     coll = db.getCollection(COLLECTION_NAME);
                 } else {
                     throw e;
@@ -119,7 +117,6 @@ public class ClusterEventService extends AbstractExecutionThreadService {
         }
 
         coll.createIndex(DBSort.asc("producer"));
-        coll.createIndex(DBSort.asc("consumers"));
         coll.addOption(Bytes.QUERYOPTION_TAILABLE | Bytes.QUERYOPTION_AWAITDATA);
 
         coll.setWriteConcern(WriteConcern.MAJORITY);
@@ -130,9 +127,7 @@ public class ClusterEventService extends AbstractExecutionThreadService {
     private DBCursor<ClusterEvent> eventCursor(NodeId nodeId) {
         // Resorting to ugly MongoDB Java Client because of https://github.com/devbliss/mongojack/issues/88
         final DBObject producerClause = new BasicDBObject("producer", new BasicDBObject("$ne", nodeId.toString()));
-        final BasicDBList consumersList = new BasicDBList();
-        consumersList.add(nodeId.toString());
-        final DBObject consumersClause = new BasicDBObject("consumers", new BasicDBObject("$nin", consumersList));
+        final DBObject consumersClause = new BasicDBObject("timestamp", new BasicDBObject("$gte", DateTime.now(DateTimeZone.UTC).getMillis()));
         final BasicDBList and = new BasicDBList();
         and.add(producerClause);
         and.add(consumersClause);
@@ -142,11 +137,6 @@ public class ClusterEventService extends AbstractExecutionThreadService {
                 .sort(DBSort.asc("$natural"))
                 .addOption(Bytes.QUERYOPTION_TAILABLE)
                 .addOption(Bytes.QUERYOPTION_AWAITDATA);
-    }
-
-    private void updateConsumers(final String eventId, final NodeId nodeId) {
-
-        final WriteResult<ClusterEvent, String> writeResult = dbCollection.updateById(eventId, DBUpdate.addToSet("consumers", nodeId.toString()));
     }
 
     private Object extractPayload(Object payload, String eventClass) {
@@ -180,8 +170,6 @@ public class ClusterEventService extends AbstractExecutionThreadService {
                         LOG.warn("Couldn't extract payload of cluster event with ID <{}>", clusterEvent.id());
                         LOG.debug("Invalid payload in cluster event: {}", clusterEvent);
                     }
-
-                    updateConsumers(clusterEvent.id(), nodeId);
                 }
             } catch (Exception e) {
                 LOG.warn("Error while reading cluster events from MongoDB, retrying.", e);
@@ -194,7 +182,7 @@ public class ClusterEventService extends AbstractExecutionThreadService {
 
     @Subscribe
     public void publishClusterEvent(Object event) {
-        if(event instanceof DeadEvent) {
+        if (event instanceof DeadEvent) {
             LOG.debug("Skipping DeadEvent on cluster event bus");
             return;
         }
