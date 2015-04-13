@@ -45,6 +45,10 @@ import org.graylog2.database.ObjectIdSerializer;
 import org.graylog2.plugin.system.NodeId;
 import org.graylog2.shared.jackson.SizeSerializer;
 import org.graylog2.shared.rest.RangeJsonSerializer;
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeUtils;
+import org.joda.time.DateTimeZone;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -55,7 +59,6 @@ import org.mockito.Spy;
 import org.mockito.runners.MockitoJUnitRunner;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -76,17 +79,19 @@ public class ClusterEventServiceTest {
     @Rule
     public MongoConnectionRule mongoRule = MongoConnectionRule.build("test");
 
-    private ClusterEventService clusterEventService;
-    private MongoConnection mongoConnection;
     @Mock
     private NodeId nodeId;
     @Spy
     private EventBus serverEventBus;
     @Spy
     private EventBus clusterEventBus;
+    private ClusterEventService clusterEventService;
+    private MongoConnection mongoConnection;
 
     @Before
     public void setUpService() throws Exception {
+        DateTimeUtils.setCurrentMillisFixed(new DateTime(2015, 4, 1, 0, 0, DateTimeZone.UTC).getMillis());
+
         this.mongoConnection = mongoRule.getMongoConnection();
 
         ObjectMapper objectMapper = new ObjectMapper()
@@ -113,6 +118,11 @@ public class ClusterEventServiceTest {
         );
     }
 
+    @After
+    public void tearDown() {
+        DateTimeUtils.setCurrentMillisSystem();
+    }
+
     @Test
     public void clusterEventServiceRegistersItselfWithClusterEventBus() throws Exception {
         verify(clusterEventBus, times(1)).register(clusterEventService);
@@ -122,9 +132,8 @@ public class ClusterEventServiceTest {
     @UsingDataSet(loadStrategy = LoadStrategyEnum.DELETE_ALL)
     public void runHandlesInvalidPayloadsGracefully() throws Exception {
         DBObject event = new BasicDBObjectBuilder()
-                .add("date", "2015-04-01T00:00:00.000Z")
+                .add("timestamp", new DateTime(2015, 4, 1, 0, 0, DateTimeZone.UTC).getMillis())
                 .add("producer", "TEST-PRODUCER")
-                .add("consumers", Collections.emptyList())
                 .add("event_class", SimpleEvent.class.getCanonicalName())
                 .add("payload", ImmutableMap.of("HAHA", "test"))
                 .get();
@@ -149,17 +158,6 @@ public class ClusterEventServiceTest {
             }
         });
 
-        await().atMost(Duration.FIVE_SECONDS).until(new Runnable() {
-            @Override
-            public void run() {
-                DBObject dbObject = collection.findOne();
-
-                @SuppressWarnings("unchecked")
-                final List<String> consumers = (List<String>) dbObject.get("consumers");
-                assertThat(consumers).containsExactly(nodeId.toString());
-            }
-        });
-
         serviceManager
                 .stopAsync()
                 .awaitStopped(5L, TimeUnit.SECONDS);
@@ -175,9 +173,8 @@ public class ClusterEventServiceTest {
         serverEventBus.register(handler);
 
         DBObject event = new BasicDBObjectBuilder()
-                .add("date", "2015-04-01T00:00:00.000Z")
+                .add("timestamp", new DateTime(2015, 4, 1, 0, 0, DateTimeZone.UTC).getMillis())
                 .add("producer", "TEST-PRODUCER")
-                .add("consumers", Collections.emptyList())
                 .add("event_class", SimpleEvent.class.getCanonicalName())
                 .add("payload", ImmutableMap.of("payload", "test"))
                 .get();
@@ -203,17 +200,6 @@ public class ClusterEventServiceTest {
             }
         });
 
-        await().atMost(Duration.FIVE_SECONDS).until(new Runnable() {
-            @Override
-            public void run() {
-                DBObject dbObject = collection.findOne();
-
-                @SuppressWarnings("unchecked")
-                final List<String> consumers = (List<String>) dbObject.get("consumers");
-                assertThat(consumers).containsExactly(nodeId.toString());
-            }
-        });
-
         serviceManager
                 .stopAsync()
                 .awaitStopped(5L, TimeUnit.SECONDS);
@@ -224,11 +210,52 @@ public class ClusterEventServiceTest {
 
     @Test
     @UsingDataSet(loadStrategy = LoadStrategyEnum.DELETE_ALL)
+    public void runOnlyProcessesNewEvents() throws Exception {
+        final SimpleEventHandler handler = new SimpleEventHandler();
+        serverEventBus.register(handler);
+
+        DBObject event = new BasicDBObjectBuilder()
+                .add("timestamp", new DateTime(2015, 3, 31, 23, 59, DateTimeZone.UTC).getMillis())
+                .add("producer", "TEST-PRODUCER")
+                .add("event_class", SimpleEvent.class.getCanonicalName())
+                .add("payload", ImmutableMap.of("payload", "test"))
+                .get();
+        final DBCollection collection = mongoConnection.getDatabase().getCollection(ClusterEventService.COLLECTION_NAME);
+        assertThat(collection.save(event).getN()).isEqualTo(1);
+        assertThat(collection.count()).isEqualTo(1L);
+        assertThat(handler.invocations).isEqualTo(0);
+
+        ServiceManager serviceManager = new ServiceManager(Collections.singleton(clusterEventService));
+
+        serviceManager
+                .startAsync()
+                .awaitHealthy(1L, TimeUnit.SECONDS);
+
+        assertThat(serviceManager.servicesByState().get(Service.State.RUNNING)).contains(clusterEventService);
+        assertThat(clusterEventService.isRunning()).isTrue();
+
+        await().atMost(Duration.FIVE_SECONDS).until(new Runnable() {
+            @Override
+            public void run() {
+                assertThat(handler.invocations).isEqualTo(0);
+                assertThat(collection.count()).isEqualTo(1L);
+            }
+        });
+
+        serviceManager
+                .stopAsync()
+                .awaitStopped(5L, TimeUnit.SECONDS);
+
+        verify(serverEventBus, never()).post(any(SimpleEvent.class));
+        verify(clusterEventBus, never()).post(any());
+    }
+
+    @Test
+    @UsingDataSet(loadStrategy = LoadStrategyEnum.DELETE_ALL)
     public void testRun() throws Exception {
         DBObject event = new BasicDBObjectBuilder()
-                .add("date", "2015-04-01T00:00:00.000Z")
+                .add("timestamp", new DateTime(2015, 4, 1, 0, 0, DateTimeZone.UTC).getMillis())
                 .add("producer", "TEST-PRODUCER")
-                .add("consumers", Collections.emptyList())
                 .add("event_class", SimpleEvent.class.getCanonicalName())
                 .add("payload", ImmutableMap.of("payload", "test"))
                 .get();
@@ -250,17 +277,6 @@ public class ClusterEventServiceTest {
             @Override
             public void run() {
                 assertThat(collection.count()).isEqualTo(1L);
-            }
-        });
-
-        await().atMost(Duration.FIVE_SECONDS).until(new Runnable() {
-            @Override
-            public void run() {
-                DBObject dbObject = collection.findOne();
-
-                @SuppressWarnings("unchecked")
-                final List<String> consumers = (List<String>) dbObject.get("consumers");
-                assertThat(consumers).containsExactly(nodeId.toString());
             }
         });
 
@@ -318,7 +334,7 @@ public class ClusterEventServiceTest {
 
         DBCollection collection = ClusterEventService.prepareCollection(mongoConnection);
         assertThat(collection.getName()).isEqualTo(ClusterEventService.COLLECTION_NAME);
-        assertThat(collection.getIndexInfo()).hasSize(3);
+        assertThat(collection.getIndexInfo()).hasSize(2);
         assertThat(collection.getOptions() & Bytes.QUERYOPTION_AWAITDATA).isEqualTo(Bytes.QUERYOPTION_AWAITDATA);
         assertThat(collection.getOptions() & Bytes.QUERYOPTION_TAILABLE).isEqualTo(Bytes.QUERYOPTION_TAILABLE);
         assertThat(collection.getWriteConcern()).isEqualTo(WriteConcern.MAJORITY);
@@ -331,7 +347,7 @@ public class ClusterEventServiceTest {
         assertThat(collection.getName()).isEqualTo(ClusterEventService.COLLECTION_NAME);
         // Not supported by Fongo at the moment.
         // assertThat(collection.isCapped()).isTrue();
-        assertThat(collection.getIndexInfo()).hasSize(3);
+        assertThat(collection.getIndexInfo()).hasSize(2);
         assertThat(collection.getOptions() & Bytes.QUERYOPTION_AWAITDATA).isEqualTo(Bytes.QUERYOPTION_AWAITDATA);
         assertThat(collection.getOptions() & Bytes.QUERYOPTION_TAILABLE).isEqualTo(Bytes.QUERYOPTION_TAILABLE);
         assertThat(collection.getWriteConcern()).isEqualTo(WriteConcern.MAJORITY);
