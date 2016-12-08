@@ -34,6 +34,7 @@ import static org.hamcrest.Matchers.equalTo;
 @MongoDbSeed
 public class StreamsTest extends BaseRestTest {
     @Test
+    @MongoDbSeed(locations = {"graylog"})
     public void listStreamsWhenNoStreamsArePresent() throws Exception {
         final JsonPath response = given()
             .when()
@@ -49,6 +50,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
+    @MongoDbSeed(locations = {"graylog"})
     public void createStreamByTitleOnly() throws Exception {
         final int beforeCount = streamCount();
 
@@ -75,6 +77,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
+    @MongoDbSeed(locations = {"graylog"})
     public void createStreamWithTitleAndDescription() throws Exception {
         final int beforeCount = streamCount();
         final String streamTitle = "Another Test Stream";
@@ -103,6 +106,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
+    @MongoDbSeed(locations = {"graylog"})
     public void createOrMatchingStreamWithTitleAndDescription() throws Exception {
         final int beforeCount = streamCount();
         final String streamTitle = "Another Test Stream";
@@ -132,6 +136,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
+    @MongoDbSeed(locations = {"graylog"})
     public void createFullStreamIncludingStreamrules() {
         final int beforeCount = streamCount();
         final String streamTitle = "A full Test Stream";
@@ -168,6 +173,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
+    @MongoDbSeed(locations = {"graylog"})
     public void createFullStreamIncludingInvalidStreamrulesShouldFail() {
         final int beforeCount = streamCount();
 
@@ -180,6 +186,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
+    @MongoDbSeed(locations = {"graylog"})
     public void creatingIncompleteStreamShouldFail() throws Exception {
         final int beforeCount = streamCount();
 
@@ -191,6 +198,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
+    @MongoDbSeed(locations = {"graylog"})
     public void creatingStreamWithoutIndexSetIdShouldFail() throws Exception {
         final int beforeCount = streamCount();
 
@@ -202,6 +210,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
+    @MongoDbSeed(locations = {"graylog"})
     public void creatingInvalidStreamShouldFail() throws Exception {
         final int beforeCount = streamCount();
 
@@ -213,6 +222,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
+    @MongoDbSeed(locations = {"graylog"})
     public void creatingInvalidMatchingStreamShouldFail() throws Exception {
         final int beforeCount = streamCount();
 
@@ -224,7 +234,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
-    @MongoDbSeed(locations = {"single-stream"})
+    @MongoDbSeed(locations = {"single-stream", "graylog"})
     public void deletingSingleStream() {
         final String streamId = "552b92b2e4b0c055e41ffb8e";
         assertThat(streamCount()).isEqualTo(1);
@@ -242,7 +252,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
-    @MongoDbSeed(locations = {"single-stream"})
+    @MongoDbSeed(locations = {"single-stream", "graylog"})
     public void deletingNonexistentStreamShouldFail() {
         final String streamId = "552b92b2e4b0c055e41ffb8f";
         assertThat(streamCount()).isEqualTo(1);
@@ -254,7 +264,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
-    @MongoDbSeed(locations = {"single-stream", "second-single-stream"})
+    @MongoDbSeed(locations = {"single-stream", "second-single-stream", "graylog"})
     public void updatingTitleOfSingleStream() {
         // id of stream to be updated
         final String streamId = "552b92b2e4b0c055e41ffb8d";
@@ -297,7 +307,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
-    @MongoDbSeed(locations = {"single-stream", "second-single-stream"})
+    @MongoDbSeed(locations = {"single-stream", "second-single-stream", "graylog"})
     public void updatingNonexistendStreamShouldFail() {
         // id of nonexistent stream to be updated
         final String streamId = "55affeaffeaffeaffeaffeaf";
@@ -323,7 +333,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
-    @MongoDbSeed(locations = {"single-stream", "second-single-stream"})
+    @MongoDbSeed(locations = {"single-stream", "second-single-stream", "graylog"})
     public void pausingStream() {
         final String streamId = "552b92b2e4b0c055e41ffb8d";
 
@@ -340,7 +350,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
-    @MongoDbSeed(locations = {"single-stream", "second-single-stream"})
+    @MongoDbSeed(locations = {"single-stream", "second-single-stream", "graylog"})
     public void pausingAlreadyPausedStreamShouldNotChangeIt() {
         final String streamId = "552b92b2e4b0c055e41ffb8e";
 
@@ -357,7 +367,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
-    @MongoDbSeed(locations = {"single-stream", "second-single-stream"})
+    @MongoDbSeed(locations = {"single-stream", "second-single-stream", "graylog"})
     public void pausingNonexistentStreamShouldFail() {
         final String streamId = "55affeaffeaffeaffeaffeaf";
 
@@ -369,7 +379,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
-    @MongoDbSeed(locations = {"single-stream", "second-single-stream"})
+    @MongoDbSeed(locations = {"single-stream", "second-single-stream", "graylog"})
     public void resumingStream() {
         final String streamId = "552b92b2e4b0c055e41ffb8e";
 
@@ -386,7 +396,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
-    @MongoDbSeed(locations = {"single-stream", "second-single-stream"})
+    @MongoDbSeed(locations = {"single-stream", "second-single-stream", "graylog"})
     public void resumingRunningStreamShouldNotChangeIt() {
         final String streamId = "552b92b2e4b0c055e41ffb8d";
 
@@ -403,7 +413,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
-    @MongoDbSeed(locations = {"single-stream", "second-single-stream"})
+    @MongoDbSeed(locations = {"single-stream", "second-single-stream", "graylog"})
     public void resumingNonexistentStreamShouldFail() {
         final String streamId = "55affeaffeaffeaffeaffeaf";
 
@@ -415,7 +425,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
-    @MongoDbSeed(locations = {"single-stream", "second-single-stream"})
+    @MongoDbSeed(locations = {"single-stream", "second-single-stream", "graylog"})
     public void updatingMatchingTypeOfStream() {
         // id of stream to be updated
         final String streamId = "552b92b2e4b0c055e41ffb8d";
@@ -447,7 +457,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
-    @MongoDbSeed(locations = {"single-stream", "second-single-stream"})
+    @MongoDbSeed(locations = {"single-stream", "second-single-stream", "graylog"})
     public void updatingUsingInvalidMatchingTypeOfStreamShouldFail() {
         final String streamId = "552b92b2e4b0c055e41ffb8d";
 
@@ -466,7 +476,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
-    @MongoDbSeed(locations = {"single-stream", "second-single-stream"})
+    @MongoDbSeed(locations = {"single-stream", "second-single-stream", "graylog"})
     public void updatingMatchingTypeOfNonexistingStreamShouldFail() {
         final String streamId = "552b92b2e4b0deadbeefaffe";
         final String otherStreamId1 = "552b92b2e4b0c055e41ffb8e";
@@ -492,7 +502,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
-    @MongoDbSeed(locations = "single-stream-with-rules")
+    @MongoDbSeed(locations = {"single-stream-with-rules", "graylog"})
     public void testingMatchAndStreamRules() {
         final String streamId = "552b92b2e4b0c055e41ffb8f";
 
@@ -516,7 +526,7 @@ public class StreamsTest extends BaseRestTest {
     }
 
     @Test
-    @MongoDbSeed(locations = "single-or-stream-with-rules")
+    @MongoDbSeed(locations = {"single-or-stream-with-rules", "graylog"})
     public void testingMatchOrStreamRules() {
         final String streamId = "552b92b2e4b0c055e41ffb8f";
 
